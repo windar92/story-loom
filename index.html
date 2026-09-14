@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>情節織機 · 視覺化劇情節點編輯器</title>
+<style>
+  :root{
+    --bg:#0f1115; --bg2:#161a22; --panel:#1b2029; --panel2:#232a35;
+    --line:#2c3440; --line2:#3a4453;
+    --text:#e7ecf3; --muted:#9aa7b8; --faint:#68748699;
+    --accent:#6ea8fe; --accent2:#8b7bff; --good:#5bd6a0; --warn:#ffb454; --bad:#ff6b6b;
+    --chip:#2a323f; --radius:12px; --shadow:0 6px 24px #0008;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;overflow:hidden}
+  button{font-family:inherit;cursor:pointer}
+  input,textarea,select{font-family:inherit}
+  .app{display:grid;grid-template-columns:310px 1fr 360px;grid-template-rows:48px 1fr;height:100vh}
+  /* Topbar */
+  .top{grid-column:1/4;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--bg2);border-bottom:1px solid var(--line)}
+  .top .logo{font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+  .top .logo b{color:var(--accent)}
+  .top .spacer{flex:1}
+  .usage{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:11.5px;color:var(--muted);cursor:pointer}
+  .usage b{color:var(--accent);font-variant-numeric:tabular-nums}
+  .usage:hover{border-color:var(--line2)}
+  .top .model{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+  .top .model select{background:transparent;border:none;color:var(--text);font-size:13px;outline:none;max-width:220px}
+  .top button.tb{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:13px}
+  .top button.tb:hover{border-color:var(--line2)}
+  .top button.primary{background:var(--accent);color:#08101f;border-color:transparent;font-weight:600}
+  /* Left panel */
+  .left{grid-row:2;background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .tabs{display:flex;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tabs button{flex:1;background:transparent;border:none;color:var(--muted);padding:9px 2px;font-size:12.5px;border-bottom:2px solid transparent;min-width:56px}
+  .tabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+  .tabpane{flex:1;overflow:auto;padding:14px;display:none}
+  .tabpane.active{display:block}
+  h3.sec{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--faint);margin:18px 0 8px}
+  h3.sec:first-child{margin-top:0}
+  label.f{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input.t,textarea.t,select.t{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px;outline:none}
+  input.t:focus,textarea.t:focus,select.t:focus{border-color:var(--accent)}
+  textarea.t{resize:vertical;min-height:56px;line-height:1.5}
+  .hint{font-size:11.5px;color:var(--faint);line-height:1.6;margin-top:6px}
+  .hint a{color:var(--accent)}
+  .btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;width:100%}
+  .btn:hover{border-color:var(--line2)}
+  .btn.mini{width:auto;padding:5px 10px;font-size:12px}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--bad);border-color:#5a2b2b}
+  .keystate{font-size:11.5px;margin-top:6px}
+  .keystate .ok{color:var(--good)} .keystate .no{color:var(--warn)}
+  /* Scales */
+  .scale{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .scale .row1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .scale .nm{font-weight:600;font-size:13px}
+  .scale .val{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:700;font-size:13px}
+  .scale input[type=range]{width:100%;margin:8px 0 2px;accent-color:var(--accent)}
+  .scale .ends{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);gap:6px}
+  .scale .ends span{max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .scale .x{background:none;border:none;color:var(--faint);font-size:15px;line-height:1;padding:0 2px}
+  .scale .x:hover{color:var(--bad)}
+  .scale .edit{background:none;border:none;color:var(--faint);font-size:12px;padding:0 4px}
+  .scale .edit:hover{color:var(--accent)}
+  .scale .defs{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;display:none}
+  .scale .defs.show{display:block}
+  .addbox{border:1px dashed var(--line2);border-radius:10px;padding:12px;margin-top:4px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  /* Tier list */
+  .tier{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 10px;margin-bottom:8px}
+  .tier .sw{width:16px;height:16px;border-radius:4px;flex:none;border:1px solid #0006}
+  .tier .tn{flex:1;font-size:13px;font-weight:600}
+  .tier input[type=color]{width:26px;height:26px;border:none;background:none;padding:0;cursor:pointer}
+  .tier .lvl{font-size:11px;color:var(--faint)}
+  /* Canvas */
+  .center{grid-row:2;position:relative;overflow:hidden;background:radial-gradient(circle at 20px 20px,#ffffff08 1px,transparent 1px) 0 0/26px 26px,var(--bg)}
+  #canvas{position:absolute;inset:0;cursor:grab}
+  #canvas.panning{cursor:grabbing}
+  #world{position:absolute;left:0;top:0;transform-origin:0 0}
+  #edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+  .node{position:absolute;background:var(--node,#212a38);border:1.5px solid var(--tc,#3a4453);border-radius:12px;box-shadow:var(--shadow);user-select:none;overflow:hidden}
+  .node.sel{box-shadow:0 0 0 3px #6ea8fe55,var(--shadow)}
+  .node .bar{height:5px;background:var(--tc,#3a4453)}
+  .node .nhead{display:flex;align-items:center;gap:6px;padding:7px 10px 5px;cursor:grab}
+  .node .lvltag{font-size:9.5px;color:#0009;background:var(--tc,#3a4453);border-radius:20px;padding:1px 7px;font-weight:700;flex:none}
+  .node .ntitle{font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .node .nbody{padding:2px 10px 8px;font-size:12px;color:var(--muted);line-height:1.5;max-height:70px;overflow:hidden}
+  .node .nbody.empty{color:var(--faint);font-style:italic}
+  .node .nfoot{display:flex;gap:5px;padding:0 10px 8px;flex-wrap:wrap}
+  .node .tag{font-size:10px;background:var(--chip);color:var(--muted);border-radius:20px;padding:2px 7px}
+  .node .tag.prose{color:var(--good)}
+  .node .port{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:var(--accent2);border:2px solid var(--bg);cursor:crosshair}
+  .node .port:hover{transform:translateX(-50%) scale(1.2)}
+  .empty-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:14px;pointer-events:none;text-align:center;line-height:2}
+  .zoombar{position:absolute;left:14px;bottom:14px;display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px}
+  .zoombar button{background:none;border:none;color:var(--muted);width:28px;height:24px;font-size:14px;border-radius:5px}
+  .zoombar button:hover{background:var(--panel2);color:var(--text)}
+  .legend{position:absolute;right:14px;bottom:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--muted);max-width:200px}
+  .legend .li{display:flex;align-items:center;gap:6px;margin:3px 0}
+  .legend .sw{width:12px;height:12px;border-radius:3px}
+  /* Right panel */
+  .right{grid-row:2;background:var(--bg2);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .right .rhead{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .right .rhead .t{font-weight:600;font-size:14px;flex:1}
+  .rbody{flex:1;overflow:auto;padding:14px}
+  .none{color:var(--faint);text-align:center;margin-top:40px;line-height:1.8;font-size:13px}
+  .opt{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .opt.sel{border-color:var(--accent2);box-shadow:0 0 0 2px #8b7bff33}
+  .opt .otop{display:flex;align-items:flex-start;gap:8px}
+  .opt .ck{margin-top:2px}
+  .opt .ot{font-weight:600;font-size:13px;margin-bottom:4px;flex:1}
+  .opt .os{font-size:12px;color:var(--muted);line-height:1.55}
+  .opt .oacts{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+  .opt .oacts button{font-size:11px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:3px 8px}
+  .opt .oacts button:hover{color:var(--text);border-color:var(--line2)}
+  .opt .oacts button.go{color:var(--good);border-color:#2e5a45}
+  .opt .grab{cursor:grab}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid #ffffff44;border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .prose-out{white-space:pre-wrap;line-height:1.75;font-size:13.5px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:8px}
+  .msg{font-size:12px;border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.5}
+  .msg.err{background:#3a1f1f;border:1px solid #5a2b2b;color:#ffb3b3}
+  .msg.info{background:#1f2a3a;border:1px solid #2b3f5a;color:#bcd3ff}
+  /* Modal */
+  .modal-bg{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:50}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;width:min(720px,92vw);max-height:86vh;overflow:auto;box-shadow:var(--shadow)}
+  .modal h2{margin:0;padding:16px 18px;border-bottom:1px solid var(--line);font-size:16px;display:flex;align-items:center;gap:8px}
+  .modal .mbody{padding:16px 18px}
+  .modal .mfoot{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+  .dragghost{position:fixed;z-index:99;pointer-events:none;background:#2b3a52;border:1.5px solid var(--accent);border-radius:10px;padding:8px 10px;width:200px;font-size:12px;box-shadow:var(--shadow);opacity:.95}
+  .dragghost .gt{font-weight:600;margin-bottom:3px}
+  .dragghost .gs{color:var(--muted);max-height:40px;overflow:hidden}
+  /* usage cards */
+  .ucard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+  .ucard h4{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .ustat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ustat .u{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .ustat .u .k{font-size:11px;color:var(--faint)}
+  .ustat .u .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+  .ustat .u .s{font-size:11px;color:var(--muted)}
+  .matitem{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px}
+  .matitem .mt{font-weight:600;font-size:12.5px;margin-bottom:3px}
+  .matitem .ms{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .matitem .macts{margin-top:7px;display:flex;gap:6px}
+  .matitem .macts button{font-size:11px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:3px 8px}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#333c49;border-radius:6px;border:2px solid var(--bg2)}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ TOP BAR ============ -->
+  <div class="top">
+    <div class="logo">🧵 <span><b>情節</b>織機</span></div>
+    <div class="spacer"></div>
+    <div class="usage" id="usageChip" title="點開看詳細用量">📊 <span id="uChip">—</span></div>
+    <div class="model" title="生成時使用哪個模型">
+      <span style="font-size:12px;color:var(--muted)">模型</span>
+      <select id="modelSel"></select>
+    </div>
+    <button class="tb" id="btnStory" title="組合選定路徑的小說內文">📖 內文</button>
+    <button class="tb" id="btnMd" title="整棵樹匯出 Markdown">⬇ MD</button>
+    <button class="tb" id="btnExport" title="下載專案 JSON 備份">匯出</button>
+    <button class="tb" id="btnImport">匯入</button>
+    <input type="file" id="importFile" accept="application/json" hidden />
+    <button class="tb primary" id="btnNew" title="新增節點">＋ 節點</button>
+  </div>
+
+  <!-- ============ LEFT PANEL ============ -->
+  <div class="left">
+    <div class="tabs">
+      <button class="active" data-tab="work">作品</button>
+      <button data-tab="scales">量尺</button>
+      <button data-tab="tiers">層級</button>
+      <button data-tab="lib">素材庫</button>
+      <button data-tab="setup">設定</button>
+    </div>
+
+    <!-- 作品 -->
+    <div class="tabpane active" data-pane="work">
+      <label class="f">作品標題</label>
+      <input class="t" id="pTitle" placeholder="例:霧都的最後一封信" />
+      <label class="f">類型 / 定位</label>
+      <input class="t" id="pGenre" placeholder="例:懸疑奇幻、都市異能" />
+      <label class="f">故事前提（premise）</label>
+      <textarea class="t" id="pPremise" placeholder="核心情境與主角處境。"></textarea>
+      <label class="f">文風 / 敘事要求</label>
+      <textarea class="t" id="pStyle" placeholder="例:第三人稱限制視角、冷硬派、多用短句。"></textarea>
+      <h3 class="sec">操作說明</h3>
+      <div class="hint">
+        1. 「設定」貼上 API key。<br>
+        2. 選節點 → 右側「生成後續選項」。<br>
+        3. 選項可<b>編輯 / 合併 / 存素材庫 / 依此方向再生一輪</b>。<br>
+        4. 把選項<b>拖到畫布</b>或按「採用」長出下一個節點。<br>
+        5. 節點分<b>層級</b>(主幹/粗枝/細枝…),用顏色與大小區分樹狀結構。<br>
+        6. 拖節點下方紫點到另一節點可手動連線。
+      </div>
+    </div>
+
+    <!-- 量尺 -->
+    <div class="tabpane" data-pane="scales">
+      <div class="hint" style="margin-bottom:12px">全域量尺套用到所有生成。每個量尺可設<b>範圍/步進</b>與<b>兩極端的文字定義</b>,AI 會依定義理解你要的尺度落點。個別節點可在右側覆蓋。</div>
+      <div id="scaleList"></div>
+      <div class="addbox">
+        <label class="f" style="margin-top:0">新增自訂量尺</label>
+        <input class="t" id="nsName" placeholder="名稱(例:暴力程度)" />
+        <div class="grid2" style="margin-top:8px">
+          <input class="t" id="nsLow" placeholder="低端短標(捏死小魚)" />
+          <input class="t" id="nsHigh" placeholder="高端短標(掐死熟人)" />
+        </div>
+        <textarea class="t" id="nsLowDef" style="margin-top:8px" placeholder="低端定義(可留空):最輕微時具體是什麼樣子"></textarea>
+        <textarea class="t" id="nsHighDef" style="margin-top:8px" placeholder="高端定義(可留空):最極端時具體是什麼樣子"></textarea>
+        <div class="grid3" style="margin-top:8px">
+          <div><label class="f" style="margin:0">最小</label><input class="t" id="nsMin" type="number" value="0"></div>
+          <div><label class="f" style="margin:0">最大</label><input class="t" id="nsMax" type="number" value="10"></div>
+          <div><label class="f" style="margin:0">步進</label><input class="t" id="nsStep" type="number" value="1" step="0.1"></div>
+        </div>
+        <button class="btn mini" style="margin-top:10px;width:100%" id="btnAddScale">＋ 加入量尺</button>
+      </div>
+    </div>
+
+    <!-- 層級 -->
+    <div class="tabpane" data-pane="tiers">
+      <div class="hint" style="margin-bottom:12px">由上到下代表樹狀階層:第 1 層是<b>主幹(劇情主軸)</b>,往下是粗枝、細枝…可自訂任意層數與顏色。節點指定層級後會用對應顏色與大小顯示。匯出 Markdown 時層級對應標題階層。</div>
+      <div id="tierList"></div>
+      <div class="addbox">
+        <div class="grid2">
+          <input class="t" id="ntName" placeholder="層級名稱(細流)" />
+          <input class="t" id="ntColor" type="color" value="#6ea8fe" style="height:38px;padding:2px" />
+        </div>
+        <button class="btn mini" style="margin-top:8px;width:100%" id="btnAddTier">＋ 新增下一層</button>
+      </div>
+    </div>
+
+    <!-- 素材庫 -->
+    <div class="tabpane" data-pane="lib">
+      <div class="hint" style="margin-bottom:12px">存起來的劇情選項。可插入為選定節點的子節點,或刪除。</div>
+      <div id="libList"></div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="tabpane" data-pane="setup">
+      <div class="msg info" style="margin-top:0">金鑰只存在你這台瀏覽器（localStorage），不會上傳、不進程式碼或 GitHub。</div>
+      <h3 class="sec">Gemini</h3>
+      <label class="f">API Key</label>
+      <input class="t" id="geminiKey" type="password" placeholder="AIza..." />
+      <label class="f">模型名稱</label>
+      <input class="t" id="geminiModel" placeholder="gemini-2.0-flash" />
+      <div class="keystate" id="geminiState"></div>
+      <div class="hint">在 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 免費取得。</div>
+
+      <h3 class="sec">Groq</h3>
+      <label class="f">API Key</label>
+      <input class="t" id="groqKey" type="password" placeholder="gsk_..." />
+      <label class="f">模型名稱</label>
+      <input class="t" id="groqModel" placeholder="llama-3.3-70b-versatile" />
+      <label class="f">連線方式</label>
+      <select class="t" id="groqMode">
+        <option value="auto">自動(部署時走本站代理、本機直連)</option>
+        <option value="proxy">一律走本站代理 /api/groq</option>
+        <option value="direct">一律瀏覽器直連</option>
+      </select>
+      <div class="keystate" id="groqState"></div>
+      <div class="hint">部署到 Vercel 後,「自動/代理」會透過本站 <code>/api/groq</code> 轉發(解 CORS、還能讀到剩餘額度)。金鑰仍由你的瀏覽器帶上,不存在伺服器。</div>
+
+      <h3 class="sec">生成參數</h3>
+      <label class="f">每次生成選項數量</label>
+      <input class="t" id="optCount" type="number" value="4" min="2" max="10" />
+      <label class="f">溫度 temperature（0=保守，1.5=發散）</label>
+      <input class="t" id="temp" type="number" value="0.9" min="0" max="2" step="0.1" />
+
+      <h3 class="sec">危險操作</h3>
+      <button class="btn danger" id="btnReset">清空整個專案</button>
+    </div>
+  </div>
+
+  <!-- ============ CENTER CANVAS ============ -->
+  <div class="center">
+    <div id="canvas"><svg id="edges"></svg><div id="world"></div></div>
+    <div class="empty-hint" id="emptyHint">還沒有節點<br>按右上角「＋ 節點」開始，或選節點後在右側生成劇情選項</div>
+    <div class="zoombar"><button id="zOut">－</button><button id="zFit" title="置中">⊡</button><button id="zIn">＋</button></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <!-- ============ RIGHT PANEL ============ -->
+  <div class="right">
+    <div class="rhead"><span class="t" id="rTitle">節點詳情</span></div>
+    <div class="rbody" id="rBody"><div class="none">在畫布上點一個節點<br>就能在這裡編輯、生成選項與內文</div></div>
+  </div>
+</div>
+
+<!-- 內文組合 modal -->
+<div class="modal-bg" id="storyModal"><div class="modal">
+  <h2>📖 組合小說內文</h2>
+  <div class="mbody">
+    <div class="hint" style="margin-bottom:10px">沿選定終點節點往上回溯,把整條路徑各節點的內文（沒有內文的用摘要）串起來。</div>
+    <div class="prose-out" id="storyOut" style="max-height:52vh;overflow:auto"></div>
+  </div>
+  <div class="mfoot">
+    <button class="btn mini" id="btnCopyStory">複製全文</button>
+    <button class="btn mini" id="btnDownloadStory">下載 .txt</button>
+    <button class="btn mini" id="btnCloseStory">關閉</button>
+  </div>
+</div></div>
+
+<!-- 用量 modal -->
+<div class="modal-bg" id="usageModal"><div class="modal">
+  <h2>📊 API 用量監測</h2>
+  <div class="mbody" id="usageBody"></div>
+  <div class="mfoot">
+    <button class="btn mini" id="btnResetUsage">重置本機計數</button>
+    <button class="btn mini" id="btnCloseUsage">關閉</button>
+  </div>
+</div></div>
+
+<script>
+"use strict";
+/* ============================================================ 資料模型 */
+const LS_KEY="story-loom-v2", LS_CFG="story-loom-cfg-v2", LS_USE="story-loom-usage-v1";
+const uid=()=>Math.random().toString(36).slice(2,9);
+
+function defaultProject(){
+  return {
+    version:2, title:"", genre:"", premise:"", style:"",
+    scales:[
+      mkScale({name:"奇幻度",low:"寫實",high:"奇幻",min:0,max:10,step:1,value:3}),
+      mkScale({name:"尺度",low:"保守",high:"大膽",min:-20,max:20,step:0.5,value:0}),
+      mkScale({name:"節奏",low:"舒緩",high:"緊湊",min:0,max:10,step:1,value:6}),
+    ],
+    tiers:[
+      mkTier("主幹","#6ea8fe"), mkTier("粗枝","#8b7bff"),
+      mkTier("細枝","#5bd6a0"), mkTier("枝葉","#ffb454"),
+    ],
+    nodes:[], edges:[], library:[], endpointId:null, view:{x:60,y:60,z:1},
+  };
+}
+function mkScale(o){return {id:uid(),name:o.name,low:o.low||"低",high:o.high||"高",lowDef:o.lowDef||"",highDef:o.highDef||"",min:num(o.min,0),max:num(o.max,10),step:num(o.step,1),value:num(o.value,0)};}
+function mkTier(name,color){return {id:uid(),name,color};}
+function num(v,d){v=Number(v);return isNaN(v)?d:v;}
+
+let P=migrate(load())||defaultProject();
+let CFG=loadCfg()||{geminiKey:"",geminiModel:"gemini-2.0-flash",groqKey:"",groqModel:"llama-3.3-70b-versatile",groqMode:"auto",provider:"gemini",optCount:4,temp:0.9};
+let USE=loadUse()||{};
+let selectedId=null, lastOptions=[], lastOptionCtxNodeId=null;
+
+function migrate(p){ if(!p)return null; if(!p.tiers)p.tiers=defaultProject().tiers; if(!p.library)p.library=[]; if(!p.scales&&p.globalScales){p.scales=p.globalScales.map(s=>mkScale({name:s.name,low:s.low,high:s.high,min:0,max:s.max||10,step:1,value:s.value}));delete p.globalScales;} if(!p.scales)p.scales=defaultProject().scales; return p; }
+
+function save(){try{localStorage.setItem(LS_KEY,JSON.stringify(P));}catch(e){}}
+function load(){try{const s=localStorage.getItem(LS_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
+function saveCfg(){try{localStorage.setItem(LS_CFG,JSON.stringify(CFG));}catch(e){}}
+function loadCfg(){try{const s=localStorage.getItem(LS_CFG);return s?JSON.parse(s):null;}catch(e){return null;}}
+function saveUse(){try{localStorage.setItem(LS_USE,JSON.stringify(USE));}catch(e){}}
+function loadUse(){try{const s=localStorage.getItem(LS_USE);return s?JSON.parse(s):null;}catch(e){return null;}}
+
+/* ============================================================ 節點/連線 */
+function getNode(id){return P.nodes.find(n=>n.id===id);}
+function isRoot(n){return !P.edges.some(e=>e.to===n.id);}
+function parentOf(id){const e=P.edges.find(e=>e.to===id);return e?getNode(e.from):null;}
+function tierOf(n){return P.tiers.find(t=>t.id===n.tierId)||P.tiers[0];}
+function tierIndex(n){return Math.max(0,P.tiers.findIndex(t=>t.id===n.tierId));}
+function nextTierId(fromNode){ if(!fromNode)return P.tiers[0].id; const i=tierIndex(fromNode); return P.tiers[Math.min(i+1,P.tiers.length-1)].id; }
+
+function addNode(o={}){
+  const n={id:uid(),title:o.title||"新節點",summary:o.summary||"",prose:o.prose||"",
+    tierId:o.tierId||(o.parentId?nextTierId(getNode(o.parentId)):P.tiers[0].id),
+    x:o.x!=null?o.x:(-P.view.x/P.view.z+220),y:o.y!=null?o.y:(-P.view.y/P.view.z+160),localScales:null};
+  P.nodes.push(n);
+  if(o.parentId)P.edges.push({id:uid(),from:o.parentId,to:n.id});
+  if(!P.endpointId)P.endpointId=n.id;
+  save();render();return n;
+}
+function deleteNode(id){P.nodes=P.nodes.filter(n=>n.id!==id);P.edges=P.edges.filter(e=>e.from!==id&&e.to!==id);if(P.endpointId===id)P.endpointId=P.nodes.length?P.nodes[P.nodes.length-1].id:null;if(selectedId===id)selectedId=null;save();render();renderRight();}
+function connect(from,to){if(from===to)return;if(P.edges.some(e=>e.from===from&&e.to===to))return;let p=from,g=0;while(p&&g++<999){if(p===to){flash("不能連成循環");return;}const e=P.edges.find(e=>e.to===p);p=e?e.from:null;}P.edges=P.edges.filter(e=>e.to!==to);P.edges.push({id:uid(),from,to});save();render();}
+
+function effScales(node){return P.scales.map(s=>{const ov=node&&node.localScales&&node.localScales[s.id]!=null;return {...s,value:ov?node.localScales[s.id]:s.value,overridden:!!ov};});}
+function scalesText(node){
+  return effScales(node).map(s=>{
+    const span=s.max-s.min||1; const pct=Math.round(((s.value-s.min)/span)*100);
+    const pos=pct>=66?`偏「${s.high}」`:pct<=33?`偏「${s.low}」`:"中間偏移";
+    let line=`- ${s.name}：目前 ${s.value}（範圍 ${s.min}~${s.max}，約 ${pct}% 位置，${pos}）。低端＝「${s.low}」，高端＝「${s.high}」。`;
+    if(s.lowDef)line+=`低端定義：${s.lowDef}。`;
+    if(s.highDef)line+=`高端定義：${s.highDef}。`;
+    return line;
+  }).join("\n");
+}
+function pathTo(id){const a=[];let c=getNode(id),g=0;while(c&&g++<999){a.unshift(c);c=parentOf(c.id);}return a;}
+function childrenOf(id){return P.edges.filter(e=>e.from===id).map(e=>getNode(e.to)).filter(Boolean);}
+function roots(){return P.nodes.filter(isRoot);}
+
+/* ============================================================ 畫布 */
+const canvas=document.getElementById("canvas"),world=document.getElementById("world"),edgesSvg=document.getElementById("edges");
+function applyView(){const t=`translate(${P.view.x}px,${P.view.y}px) scale(${P.view.z})`;world.style.transform=t;edgesSvg.style.transform=t;}
+let panning=false,panStart=null;
+canvas.addEventListener("mousedown",e=>{if(e.target===canvas||e.target===world||e.target===edgesSvg){panning=true;canvas.classList.add("panning");panStart={mx:e.clientX,my:e.clientY,vx:P.view.x,vy:P.view.y};selectNode(null);}});
+window.addEventListener("mousemove",e=>{if(panning){P.view.x=panStart.vx+(e.clientX-panStart.mx);P.view.y=panStart.vy+(e.clientY-panStart.my);applyView();}});
+window.addEventListener("mouseup",()=>{if(panning){panning=false;canvas.classList.remove("panning");save();}});
+canvas.addEventListener("wheel",e=>{e.preventDefault();const r=canvas.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top,old=P.view.z;const nz=Math.min(2.2,Math.max(0.25,old*(e.deltaY<0?1.12:0.89)));P.view.x=mx-(mx-P.view.x)*(nz/old);P.view.y=my-(my-P.view.y)*(nz/old);P.view.z=nz;applyView();save();},{passive:false});
+document.getElementById("zIn").onclick=()=>zoomBtn(1.15);document.getElementById("zOut").onclick=()=>zoomBtn(0.87);document.getElementById("zFit").onclick=fitView;
+function zoomBtn(f){const r=canvas.getBoundingClientRect(),mx=r.width/2,my=r.height/2,old=P.view.z,nz=Math.min(2.2,Math.max(0.25,old*f));P.view.x=mx-(mx-P.view.x)*(nz/old);P.view.y=my-(my-P.view.y)*(nz/old);P.view.z=nz;applyView();save();}
+function fitView(){if(!P.nodes.length){P.view={x:60,y:60,z:1};applyView();save();return;}const xs=P.nodes.map(n=>n.x),ys=P.nodes.map(n=>n.y);const minx=Math.min(...xs)-40,miny=Math.min(...ys)-40,maxx=Math.max(...xs)+240,maxy=Math.max(...ys)+190;const r=canvas.getBoundingClientRect();const z=Math.min(1.6,Math.max(0.3,Math.min(r.width/(maxx-minx),r.height/(maxy-miny))));P.view.z=z;P.view.x=(r.width-(maxx-minx)*z)/2-minx*z;P.view.y=(r.height-(maxy-miny)*z)/2-miny*z;applyView();save();}
+let dragging=false;
+function startNodeDrag(e,node,el){e.stopPropagation();dragging=false;const s={mx:e.clientX,my:e.clientY,nx:node.x,ny:node.y};
+  function mv(ev){dragging=true;node.x=s.nx+(ev.clientX-s.mx)/P.view.z;node.y=s.ny+(ev.clientY-s.my)/P.view.z;el.style.left=node.x+"px";el.style.top=node.y+"px";drawEdges();}
+  function up(){window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);if(dragging)save();}
+  window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);}
+function startLink(e,fromId){e.stopPropagation();e.preventDefault();const tmp=document.createElementNS("http://www.w3.org/2000/svg","path");tmp.setAttribute("stroke","#8b7bff");tmp.setAttribute("stroke-width","2");tmp.setAttribute("fill","none");tmp.setAttribute("stroke-dasharray","5 4");edgesSvg.appendChild(tmp);const from=getNode(fromId);
+  function mv(ev){const r=canvas.getBoundingClientRect();const x2=(ev.clientX-r.left-P.view.x)/P.view.z,y2=(ev.clientY-r.top-P.view.y)/P.view.z;tmp.setAttribute("d",curve(from.x+nodeW(fromId)/2,from.y+nodeH(fromId),x2,y2));}
+  function up(ev){window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);tmp.remove();const el=document.elementFromPoint(ev.clientX,ev.clientY);const ne=el&&el.closest(".node");if(ne&&ne.dataset.id&&ne.dataset.id!==fromId)connect(fromId,ne.dataset.id);}
+  window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);}
+function nodeH(id){const el=world.querySelector(`.node[data-id="${id}"]`);return el?el.offsetHeight:110;}
+function nodeW(id){const el=world.querySelector(`.node[data-id="${id}"]`);return el?el.offsetWidth:200;}
+
+function render(){
+  applyView();world.innerHTML="";
+  document.getElementById("emptyHint").style.display=P.nodes.length?"none":"flex";
+  for(const n of P.nodes){
+    const t=tierOf(n),ti=tierIndex(n);
+    const w=Math.max(150,224-ti*16);
+    const el=document.createElement("div");
+    el.className="node"+(selectedId===n.id?" sel":"");
+    el.dataset.id=n.id;el.style.left=n.x+"px";el.style.top=n.y+"px";el.style.width=w+"px";
+    el.style.setProperty("--tc",t.color);
+    el.style.setProperty("--node", ti===0?"#1e2836":"#212a38");
+    const eff=effScales(n);
+    const tags=eff.slice(0,2).map(s=>`<span class="tag">${esc(s.name)} ${fmt(s.value)}</span>`).join("");
+    el.innerHTML=`<div class="bar"></div>
+      <div class="nhead"><span class="lvltag">${esc(t.name)}</span><span class="ntitle">${esc(n.title||"未命名")}</span></div>
+      <div class="nbody ${n.summary?"":"empty"}">${esc(n.summary||"（尚無劇情摘要）")}</div>
+      <div class="nfoot">${tags}${n.prose?'<span class="tag prose">✓內文</span>':''}${P.endpointId===n.id?'<span class="tag" style="color:var(--warn)">終點</span>':''}</div>
+      <div class="port" title="拖到另一節點以連線"></div>`;
+    el.querySelector(".nhead").addEventListener("mousedown",e=>{selectNode(n.id);startNodeDrag(e,n,el);});
+    el.addEventListener("mousedown",e=>{if(e.target.classList.contains("port"))return;selectNode(n.id);});
+    el.querySelector(".port").addEventListener("mousedown",e=>startLink(e,n.id));
+    world.appendChild(el);
+  }
+  drawEdges();renderLegend();
+}
+function curve(x1,y1,x2,y2){const dy=Math.max(30,Math.abs(y2-y1)/2);return `M${x1},${y1} C${x1},${y1+dy} ${x2},${y2-dy} ${x2},${y2}`;}
+function drawEdges(){
+  edgesSvg.innerHTML=`<defs><marker id="arw" markerWidth="9" markerHeight="9" refX="6.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#63708a"/></marker></defs>`;
+  for(const e of P.edges){const a=getNode(e.from),b=getNode(e.to);if(!a||!b)continue;const x1=a.x+nodeW(a.id)/2,y1=a.y+nodeH(a.id),x2=b.x+nodeW(b.id)/2,y2=b.y;const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d",curve(x1,y1,x2,y2));p.setAttribute("stroke",tierOf(a).color+"cc");p.setAttribute("stroke-width","2");p.setAttribute("fill","none");p.setAttribute("marker-end","url(#arw)");edgesSvg.appendChild(p);}
+}
+function renderLegend(){const l=document.getElementById("legend");l.innerHTML="<div style='font-weight:600;color:var(--text);margin-bottom:4px'>層級</div>"+P.tiers.map((t,i)=>`<div class="li"><span class="sw" style="background:${t.color}"></span>${i+1}. ${esc(t.name)}</div>`).join("");}
+function selectNode(id){selectedId=id;render();renderRight();}
+
+/* ============================================================ 右側面板 */
+const rBody=document.getElementById("rBody"),rTitle=document.getElementById("rTitle");
+function renderRight(){
+  const n=getNode(selectedId);
+  if(!n){rTitle.textContent="節點詳情";rBody.innerHTML=`<div class="none">在畫布上點一個節點<br>就能在這裡編輯、生成選項與內文</div>`;return;}
+  const tierOpts=P.tiers.map((t,i)=>`<option value="${t.id}" ${t.id===n.tierId?"selected":""}>${i+1}. ${esc(t.name)}</option>`).join("");
+  rBody.innerHTML=`
+    <label class="f" style="margin-top:0">節點標題</label>
+    <input class="t" id="nTitle" value="${escAttr(n.title)}" />
+    <label class="f">層級</label>
+    <select class="t" id="nTier">${tierOpts}</select>
+    <label class="f">劇情摘要（這一階段發生什麼）</label>
+    <textarea class="t" id="nSummary" placeholder="這個節點的劇情概要">${esc(n.summary)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn mini" id="btnGenOpts" style="flex:1">✨ 生成後續選項</button>
+      <button class="btn mini" id="btnGenProse" style="flex:1">📝 生成內文</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn mini ghost" id="btnSetEnd" style="flex:1">${P.endpointId===n.id?"★ 已是內文終點":"設為內文終點"}</button>
+      <button class="btn mini danger" id="btnDelNode">刪除節點</button>
+    </div>
+    <div id="genArea"></div>
+    <h3 class="sec">此節點量尺覆蓋</h3>
+    <div class="hint" style="margin-top:0;margin-bottom:8px">預設沿用全域量尺。打勾才用此節點自己的值。</div>
+    <div id="localScales"></div>
+    <div id="proseArea">${n.prose?`<h3 class="sec">已生成內文</h3><div class="prose-out">${esc(n.prose)}</div>`:""}</div>`;
+  document.getElementById("nTitle").oninput=e=>{n.title=e.target.value;save();const el=world.querySelector(`.node[data-id="${n.id}"] .ntitle`);if(el)el.textContent=n.title||"未命名";};
+  document.getElementById("nTier").onchange=e=>{n.tierId=e.target.value;save();render();};
+  document.getElementById("nSummary").oninput=e=>{n.summary=e.target.value;save();const el=world.querySelector(`.node[data-id="${n.id}"] .nbody`);if(el){el.textContent=n.summary||"（尚無劇情摘要）";el.classList.toggle("empty",!n.summary);}};
+  document.getElementById("btnGenOpts").onclick=()=>genOptions(n);
+  document.getElementById("btnGenProse").onclick=()=>genProse(n);
+  document.getElementById("btnSetEnd").onclick=()=>{P.endpointId=n.id;save();render();renderRight();};
+  document.getElementById("btnDelNode").onclick=()=>{if(confirm("刪除此節點？"))deleteNode(n.id);};
+  renderLocalScales(n);
+  // 重繪上次選項(若屬於此節點)
+  if(lastOptionCtxNodeId===n.id&&lastOptions.length)renderOptions(n);
+}
+function renderLocalScales(n){
+  const box=document.getElementById("localScales");if(!box)return;box.innerHTML="";
+  for(const s of P.scales){
+    const ov=n.localScales&&n.localScales[s.id]!=null;const val=ov?n.localScales[s.id]:s.value;
+    const d=document.createElement("div");d.className="scale";
+    d.innerHTML=`<div class="row1"><label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="checkbox" ${ov?"checked":""} data-ck/> <span class="nm">${esc(s.name)}</span></label><span class="val">${fmt(val)}</span></div>
+      <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${val}" ${ov?"":"disabled"} data-rg/>
+      <div class="ends"><span>${esc(s.low)}</span><span>${esc(s.high)}</span></div>`;
+    d.querySelector("[data-ck]").onchange=e=>{n.localScales=n.localScales||{};if(e.target.checked)n.localScales[s.id]=val;else{delete n.localScales[s.id];if(!Object.keys(n.localScales).length)n.localScales=null;}save();renderLocalScales(n);render();};
+    const rg=d.querySelector("[data-rg]");rg.oninput=e=>{n.localScales=n.localScales||{};n.localScales[s.id]=Number(e.target.value);d.querySelector(".val").textContent=fmt(e.target.value);save();};rg.onchange=()=>render();
+    box.appendChild(d);
+  }
+}
+
+/* ============================================================ 量尺面板 */
+function renderScales(){
+  const box=document.getElementById("scaleList");box.innerHTML="";
+  P.scales.forEach(s=>{
+    const d=document.createElement("div");d.className="scale";
+    d.innerHTML=`<div class="row1"><span class="nm">${esc(s.name)}</span><span><span class="val">${fmt(s.value)}</span> <button class="edit" title="編輯定義">✎</button> <button class="x" title="刪除">✕</button></span></div>
+      <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.value}"/>
+      <div class="ends"><span title="${escAttr(s.lowDef||s.low)}">${esc(s.low)}</span><span title="${escAttr(s.highDef||s.high)}">${esc(s.high)}</span></div>
+      <div class="defs">
+        <label class="f" style="margin-top:0">低端定義</label><textarea class="t" data-lowdef>${esc(s.lowDef)}</textarea>
+        <label class="f">高端定義</label><textarea class="t" data-highdef>${esc(s.highDef)}</textarea>
+        <div class="grid3" style="margin-top:8px">
+          <div><label class="f" style="margin:0">最小</label><input class="t" type="number" data-min value="${s.min}"></div>
+          <div><label class="f" style="margin:0">最大</label><input class="t" type="number" data-max value="${s.max}"></div>
+          <div><label class="f" style="margin:0">步進</label><input class="t" type="number" step="0.1" data-step value="${s.step}"></div>
+        </div>
+      </div>`;
+    const rg=d.querySelector('input[type=range]');
+    rg.oninput=e=>{s.value=Number(e.target.value);d.querySelector(".val").textContent=fmt(s.value);save();};
+    rg.onchange=()=>{render();if(selectedId)renderLocalScales(getNode(selectedId));};
+    d.querySelector(".edit").onclick=()=>d.querySelector(".defs").classList.toggle("show");
+    d.querySelector(".x").onclick=()=>{if(confirm(`刪除量尺「${s.name}」？`)){P.scales=P.scales.filter(x=>x.id!==s.id);P.nodes.forEach(n=>{if(n.localScales)delete n.localScales[s.id];});save();renderScales();render();if(selectedId)renderRight();}};
+    d.querySelector("[data-lowdef]").oninput=e=>{s.lowDef=e.target.value;save();};
+    d.querySelector("[data-highdef]").oninput=e=>{s.highDef=e.target.value;save();};
+    d.querySelector("[data-min]").onchange=e=>{s.min=Number(e.target.value);rg.min=s.min;save();renderScales();};
+    d.querySelector("[data-max]").onchange=e=>{s.max=Number(e.target.value);rg.max=s.max;save();renderScales();};
+    d.querySelector("[data-step]").onchange=e=>{s.step=Number(e.target.value)||1;rg.step=s.step;save();renderScales();};
+    box.appendChild(d);
+  });
+}
+document.getElementById("btnAddScale").onclick=()=>{
+  const name=val("nsName");if(!name){flash("請填量尺名稱");return;}
+  P.scales.push(mkScale({name,low:val("nsLow")||"低",high:val("nsHigh")||"高",lowDef:val("nsLowDef"),highDef:val("nsHighDef"),min:Number(val("nsMin")),max:Number(val("nsMax")),step:Number(val("nsStep"))||1,value:Math.round((Number(val("nsMin"))+Number(val("nsMax")))/2)}));
+  ["nsName","nsLow","nsHigh","nsLowDef","nsHighDef"].forEach(id=>document.getElementById(id).value="");
+  save();renderScales();if(selectedId)renderRight();flash("已新增量尺");
+};
+
+/* ============================================================ 層級面板 */
+function renderTiers(){
+  const box=document.getElementById("tierList");box.innerHTML="";
+  P.tiers.forEach((t,i)=>{
+    const d=document.createElement("div");d.className="tier";
+    d.innerHTML=`<span class="lvl">${i+1}</span><input type="color" value="${t.color}"><input class="t tn" value="${escAttr(t.name)}" style="padding:4px 8px">
+      <button class="edit" data-up title="上移">▲</button><button class="edit" data-dn title="下移">▼</button><button class="x" title="刪除">✕</button>`;
+    d.querySelector("input[type=color]").oninput=e=>{t.color=e.target.value;save();render();renderTiers();};
+    d.querySelector(".tn").oninput=e=>{t.name=e.target.value;save();render();renderLegend();};
+    d.querySelector("[data-up]").onclick=()=>{if(i>0){[P.tiers[i-1],P.tiers[i]]=[P.tiers[i],P.tiers[i-1]];save();renderTiers();render();}};
+    d.querySelector("[data-dn]").onclick=()=>{if(i<P.tiers.length-1){[P.tiers[i+1],P.tiers[i]]=[P.tiers[i],P.tiers[i+1]];save();renderTiers();render();}};
+    d.querySelector(".x").onclick=()=>{if(P.tiers.length<=1){flash("至少要保留一層");return;}if(confirm(`刪除層級「${t.name}」？該層節點會落到第 1 層`)){const fb=P.tiers.find(x=>x.id!==t.id).id;P.nodes.forEach(n=>{if(n.tierId===t.id)n.tierId=fb;});P.tiers=P.tiers.filter(x=>x.id!==t.id);save();renderTiers();render();if(selectedId)renderRight();}};
+    box.appendChild(d);
+  });
+}
+document.getElementById("btnAddTier").onclick=()=>{const name=val("ntName")||("第"+(P.tiers.length+1)+"層");P.tiers.push(mkTier(name,document.getElementById("ntColor").value));document.getElementById("ntName").value="";save();renderTiers();render();if(selectedId)renderRight();};
+
+/* ============================================================ 素材庫 */
+function renderLib(){
+  const box=document.getElementById("libList");box.innerHTML="";
+  if(!P.library.length){box.innerHTML=`<div class="none" style="margin-top:10px">還沒有素材<br>在生成的選項上按「存素材庫」</div>`;return;}
+  P.library.slice().reverse().forEach(m=>{
+    const d=document.createElement("div");d.className="matitem";
+    d.innerHTML=`<div class="mt">${esc(m.title)}</div><div class="ms">${esc(m.summary)}</div>
+      <div class="macts"><button data-ins>插入為子節點</button><button data-del>刪除</button></div>`;
+    d.querySelector("[data-ins]").onclick=()=>{const n=getNode(selectedId);if(!n){flash("先在畫布選一個父節點");return;}addNode({title:m.title,summary:m.summary,parentId:n.id,x:n.x+Math.random()*120-20,y:n.y+180});flash("已插入");};
+    d.querySelector("[data-del]").onclick=()=>{P.library=P.library.filter(x=>x.id!==m.id);save();renderLib();};
+    box.appendChild(d);
+  });
+}
+function saveToLib(o){P.library.push({id:uid(),title:o.title,summary:o.summary,savedAt:Date.now()});save();renderLib();flash("已存入素材庫");}
+
+/* ============================================================ 模型 API + 用量 */
+function currentProvider(){return document.getElementById("modelSel").value;}
+function useGroqProxy(){const m=CFG.groqMode||"auto";if(m==="proxy")return true;if(m==="direct")return false;return location.protocol==="http:"||location.protocol==="https:";}
+
+async function callModel(prompt,{json=false}={}){
+  const provider=currentProvider(),temp=Number(CFG.temp)||0.9;
+  if(provider==="gemini"){
+    if(!CFG.geminiKey)throw new Error("尚未填入 Gemini API Key（左側「設定」）");
+    const model=CFG.geminiModel||"gemini-2.0-flash";
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(CFG.geminiKey)}`;
+    const body={contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:temp}};
+    if(json)body.generationConfig.responseMimeType="application/json";
+    let res;try{res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
+    catch(err){throw new Error("網路/CORS 錯誤（Gemini）："+err.message);}
+    if(!res.ok){const t=await res.text().catch(()=>"");throw new Error(`Gemini ${res.status}：${shorten(t)}`);}
+    const data=await res.json();
+    const txt=data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join("")||"";
+    if(!txt){const fr=data?.promptFeedback?.blockReason;if(fr)throw new Error("Gemini 因內容政策擋下（"+fr+"）。可調低「尺度」或改用 Groq。");throw new Error("Gemini 回傳空內容");}
+    recordUse("gemini",data?.usageMetadata?.totalTokenCount||0,null);
+    return txt;
+  }else{
+    if(!CFG.groqKey)throw new Error("尚未填入 Groq API Key（左側「設定」）");
+    const model=CFG.groqModel||"llama-3.3-70b-versatile";
+    const body={model,temperature:temp,messages:[{role:"user",content:prompt}]};
+    if(json)body.response_format={type:"json_object"};
+    const proxy=useGroqProxy();
+    const url=proxy?"/api/groq":"https://api.groq.com/openai/v1/chat/completions";
+    const headers=proxy?{"Content-Type":"application/json","x-groq-key":CFG.groqKey}:{"Content-Type":"application/json","Authorization":"Bearer "+CFG.groqKey};
+    let res;try{res=await fetch(url,{method:"POST",headers,body:JSON.stringify(body)});}
+    catch(err){throw new Error("網路/CORS 錯誤（Groq）："+err.message+(proxy?"":"｜瀏覽器直連可能被擋,可在設定改『走本站代理』或先用 Gemini。"));}
+    if(!res.ok){const t=await res.text().catch(()=>"");throw new Error(`Groq ${res.status}：${shorten(t)}`+(res.status===404&&proxy?"（找不到 /api/groq,可能尚未部署代理,先在設定改『直連』）":""));}
+    const data=await res.json();
+    const hdr={};["x-ratelimit-remaining-requests","x-ratelimit-limit-requests","x-ratelimit-reset-requests","x-ratelimit-remaining-tokens","x-ratelimit-limit-tokens"].forEach(h=>{const v=res.headers.get(h);if(v!=null)hdr[h]=v;});
+    recordUse("groq",data?.usage?.total_tokens||0,Object.keys(hdr).length?hdr:null);
+    return data?.choices?.[0]?.message?.content||"";
+  }
+}
+function shorten(t){try{const j=JSON.parse(t);return (j.error&&(j.error.message||j.error))||t;}catch(_){}return (t||"").slice(0,200);}
+
+/* --- 用量記錄 --- */
+function dayKey(tz){try{return new Intl.DateTimeFormat("en-CA",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}catch(_){return new Date().toISOString().slice(0,10);}}
+function minKey(){const d=new Date();return d.getUTCFullYear()+"-"+d.getUTCMonth()+"-"+d.getUTCDate()+"-"+d.getUTCHours()+"-"+d.getUTCMinutes();}
+function secsToNextMinute(){return 60-new Date().getSeconds();}
+function nextMidnight(tz){try{const now=new Date();const p=new Intl.DateTimeFormat("en-GB",{timeZone:tz,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).formatToParts(now);const g=k=>Number(p.find(x=>x.type===k).value);const elapsed=g("hour")*3600+g("minute")*60+g("second");return new Date(now.getTime()+(86400-elapsed)*1000);}catch(_){return new Date(Date.now()+86400000);}}
+function tzOf(provider){return provider==="gemini"?"America/Los_Angeles":"UTC";}
+function slot(provider){
+  const tz=tzOf(provider),dk=dayKey(tz),mk=minKey();
+  USE[provider]=USE[provider]||{day:dk,dayReq:0,dayTok:0,min:mk,minReq:0,tok:0,hdr:null};
+  const u=USE[provider];
+  if(u.day!==dk){u.day=dk;u.dayReq=0;u.dayTok=0;}
+  if(u.min!==mk){u.min=mk;u.minReq=0;}
+  return u;
+}
+function recordUse(provider,tokens,hdr){const u=slot(provider);u.dayReq++;u.minReq++;u.dayTok+=tokens||0;u.tok=(u.tok||0)+(tokens||0);if(hdr)u.hdr=hdr;saveUse();updateUsageChip();if(document.getElementById("usageModal").classList.contains("show"))renderUsage();}
+function updateUsageChip(){const g=slot("gemini"),q=slot("groq");document.getElementById("uChip").innerHTML=`G <b>${g.dayReq}</b> · Q <b>${q.dayReq}</b> 次/今日`;}
+function renderUsage(){
+  const body=document.getElementById("usageBody");
+  function card(provider,label){
+    const u=slot(provider),tz=tzOf(provider);
+    const reset=nextMidnight(tz);
+    const hdr=u.hdr?`<div class="hint" style="margin-top:8px">伺服器回報：剩餘請求 ${u.hdr["x-ratelimit-remaining-requests"]??"?"}/${u.hdr["x-ratelimit-limit-requests"]??"?"}，剩餘 token ${u.hdr["x-ratelimit-remaining-tokens"]??"?"}/${u.hdr["x-ratelimit-limit-tokens"]??"?"}</div>`:"";
+    return `<div class="ucard"><h4>${label}</h4>
+      <div class="ustat">
+        <div class="u"><div class="k">本分鐘已用</div><div class="v">${u.minReq}</div><div class="s">下次重置 ${secsToNextMinute()} 秒後</div></div>
+        <div class="u"><div class="k">今日已用（次）</div><div class="v">${u.dayReq}</div><div class="s">日視窗重置 ${reset.toLocaleString("zh-TW",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})}</div></div>
+        <div class="u"><div class="k">今日 token</div><div class="v">${(u.dayTok||0).toLocaleString()}</div><div class="s">${provider==="gemini"?"以太平洋時間為日界":"以 UTC 為日界(估)"}</div></div>
+        <div class="u"><div class="k">累計 token</div><div class="v">${(u.tok||0).toLocaleString()}</div><div class="s">此瀏覽器累計</div></div>
+      </div>${hdr}</div>`;
+  }
+  body.innerHTML=card("gemini","Gemini · "+(CFG.geminiModel||""))+card("groq","Groq · "+(CFG.groqModel||""))+
+    `<div class="hint">此為<b>本機估算</b>:只計你在這個瀏覽器、透過本工具送出的呼叫;用其他程式或裝置打同一把金鑰不會被算進來。Groq 走本站代理時可讀到伺服器實際剩餘量(上方「伺服器回報」)。免費額度的實際上限請以各平台為準。</div>`;
+}
+document.getElementById("usageChip").onclick=()=>{renderUsage();document.getElementById("usageModal").classList.add("show");};
+document.getElementById("btnCloseUsage").onclick=()=>document.getElementById("usageModal").classList.remove("show");
+document.getElementById("usageModal").addEventListener("click",e=>{if(e.target.id==="usageModal")e.currentTarget.classList.remove("show");});
+document.getElementById("btnResetUsage").onclick=()=>{if(confirm("重置本機用量計數？")){USE={};saveUse();updateUsageChip();renderUsage();}};
+
+/* ============================================================ 生成選項 */
+async function genOptions(n,opts={}){
+  selectNode(n.id);
+  const area=document.getElementById("genArea");
+  area.innerHTML=`<div class="msg info"><span class="spin"></span> 生成劇情選項中…</div>`;
+  const n0=Number(CFG.optCount)||4;
+  let extra="";
+  if(opts.basedOn)extra=`\n特別要求：參考以下這個選項的「形式與方向」，生成同一走向、但細節不同的新一輪 ${n0} 個變體選項：\n方向範本：「${opts.basedOn.title}」— ${opts.basedOn.summary}\n請保持這個方向的精神，但每個變體要有明顯差異。`;
+  const prompt=
+`你是小說劇情結構設計助手。根據以下設定與目前劇情脈絡，為「下一個劇情階段」提供 ${n0} 個彼此差異明顯的走向選項。其中至少一個要大膽、出乎意料。每個選項給一個 6~16 字小標題與 1~2 句摘要，只描述劇情走向，不要寫成完整內文。
+${buildContext(n)}${extra}
+嚴格只輸出 JSON：{"options":[{"title":"標題","summary":"摘要"}, ...]}`;
+  try{
+    const raw=await callModel(prompt,{json:true});
+    const list=parseOptions(raw).map(o=>({id:uid(),title:o.title,summary:o.summary,selected:false,editing:false}));
+    if(!list.length){area.innerHTML=`<div class="msg err">沒能解析出選項。原始回應：<br>${esc(raw.slice(0,300))}</div>`;return;}
+    lastOptions=list;lastOptionCtxNodeId=n.id;renderOptions(n);
+  }catch(err){area.innerHTML=`<div class="msg err">${esc(err.message)}</div>`;}
+}
+function renderOptions(n){
+  const area=document.getElementById("genArea");if(!area)return;
+  const selCount=lastOptions.filter(o=>o.selected).length;
+  area.innerHTML=`<h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">後續選項
+     <span>${selCount>=2?`<button class="btn mini" id="btnMerge" style="width:auto;padding:3px 8px">合併選取(${selCount})</button>`:""}</span></h3>
+     <div class="hint" style="margin-top:0;margin-bottom:8px">可編輯 · 勾選兩個以上可合併 · 拖到畫布或按採用 · 存素材庫 · 依方向再生一輪</div>`;
+  lastOptions.forEach(o=>{
+    const d=document.createElement("div");d.className="opt"+(o.selected?" sel":"");
+    if(o.editing){
+      d.innerHTML=`<input class="t" data-et value="${escAttr(o.title)}" style="margin-bottom:6px"><textarea class="t" data-es>${esc(o.summary)}</textarea>
+        <div class="oacts"><button data-save>儲存</button><button data-cancel>取消</button></div>`;
+      d.querySelector("[data-save]").onclick=()=>{o.title=d.querySelector("[data-et]").value;o.summary=d.querySelector("[data-es]").value;o.editing=false;renderOptions(n);};
+      d.querySelector("[data-cancel]").onclick=()=>{o.editing=false;renderOptions(n);};
+    }else{
+      d.innerHTML=`<div class="otop"><input type="checkbox" class="ck" ${o.selected?"checked":""} data-ck>
+        <div style="flex:1"><div class="ot">${esc(o.title)}</div><div class="os">${esc(o.summary)}</div></div></div>
+        <div class="oacts">
+          <button class="go" data-add>採用為子節點</button>
+          <button data-drag class="grab">拖曳⇢</button>
+          <button data-edit>編輯</button>
+          <button data-redir>依此方向再生</button>
+          <button data-lib>存素材庫</button>
+        </div>`;
+      d.querySelector("[data-ck]").onchange=e=>{o.selected=e.target.checked;renderOptions(n);};
+      d.querySelector("[data-add]").onclick=()=>{addNode({title:o.title,summary:o.summary,parentId:n.id,x:n.x+Math.random()*120-20,y:n.y+190});flash("已新增子節點");};
+      d.querySelector("[data-edit]").onclick=()=>{o.editing=true;renderOptions(n);};
+      d.querySelector("[data-redir]").onclick=()=>genOptions(n,{basedOn:o});
+      d.querySelector("[data-lib]").onclick=()=>saveToLib(o);
+      d.querySelector("[data-drag]").addEventListener("mousedown",e=>startOptDrag(e,o,n));
+    }
+    area.appendChild(d);
+  });
+  const mb=document.getElementById("btnMerge");if(mb)mb.onclick=()=>mergeOptions(n);
+}
+async function mergeOptions(n){
+  const sel=lastOptions.filter(o=>o.selected);if(sel.length<2){flash("至少選兩個");return;}
+  const area=document.getElementById("genArea");
+  const tmp=document.createElement("div");tmp.className="msg info";tmp.innerHTML='<span class="spin"></span> 合併中…';area.prepend(tmp);
+  const prompt=`把以下 ${sel.length} 個劇情走向選項，融合成一個兼具它們精神的單一選項。給一個 6~16 字小標題與 1~2 句摘要，只輸出 JSON：{"title":"","summary":""}\n\n`+sel.map((o,i)=>`${i+1}. ${o.title}：${o.summary}`).join("\n");
+  try{
+    const raw=await callModel(prompt,{json:true});let m;try{m=JSON.parse(raw.replace(/^```(json)?/i,"").replace(/```$/,"").trim());}catch(_){const mm=raw.match(/\{[\s\S]*\}/);m=mm?JSON.parse(mm[0]):{title:"合併選項",summary:sel.map(o=>o.summary).join("；")};}
+    const merged={id:uid(),title:m.title||"合併選項",summary:m.summary||"",selected:false,editing:false};
+    lastOptions=lastOptions.filter(o=>!o.selected);lastOptions.unshift(merged);renderOptions(n);flash("已合併");
+  }catch(err){tmp.className="msg err";tmp.textContent=err.message;}
+}
+function parseOptions(raw){
+  let t=raw.trim().replace(/^```(json)?/i,"").replace(/```$/,"").trim();
+  try{const j=JSON.parse(t);if(Array.isArray(j))return normOpts(j);if(j.options)return normOpts(j.options);}catch(_){}
+  const m=t.match(/[\[{][\s\S]*[\]}]/);if(m){try{const j=JSON.parse(m[0]);return normOpts(Array.isArray(j)?j:(j.options||[]));}catch(_){}}
+  return t.split(/\n+/).filter(l=>l.trim()).slice(0,8).map(l=>({title:l.replace(/^[-*\d.、\s]+/,"").slice(0,16),summary:l.replace(/^[-*\d.、\s]+/,"")}));
+}
+function normOpts(a){return a.filter(Boolean).map(o=>typeof o==="string"?{title:o.slice(0,16),summary:o}:{title:o.title||o.name||"選項",summary:o.summary||o.desc||o.text||""});}
+function startOptDrag(e,o,parent){e.preventDefault();const g=document.createElement("div");g.className="dragghost";g.innerHTML=`<div class="gt">${esc(o.title)}</div><div class="gs">${esc(o.summary)}</div>`;document.body.appendChild(g);
+  const mv=ev=>{g.style.left=(ev.clientX+8)+"px";g.style.top=(ev.clientY+8)+"px";};mv(e);
+  function up(ev){window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);g.remove();const r=canvas.getBoundingClientRect();if(ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom){const x=(ev.clientX-r.left-P.view.x)/P.view.z-100,y=(ev.clientY-r.top-P.view.y)/P.view.z-20;addNode({title:o.title,summary:o.summary,parentId:parent.id,x,y});flash("已在放下處新增節點");}}
+  window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);}
+
+/* ============================================================ 生成內文 */
+async function genProse(n){
+  const area=document.getElementById("proseArea");area.innerHTML=`<h3 class="sec">生成內文</h3><div class="msg info"><span class="spin"></span> 撰寫中…</div>`;
+  const prompt=`你是小說作家。根據以下設定、前情脈絡與「本節點劇情摘要」，寫出這一段的小說內文。只寫這一個節點對應的段落（約 300~600 字），延續前文語氣，不要重寫前面已發生的內容，不要加標題或說明，直接給正文。
+${buildContext(n,true)}
+【本節點劇情摘要】：${n.summary||"（未填，請依脈絡自然推進）"}`;
+  try{const txt=await callModel(prompt);n.prose=txt.trim();save();render();area.innerHTML=`<h3 class="sec">已生成內文</h3><div class="prose-out">${esc(n.prose)}</div><button class="btn mini ghost" id="btnReProse" style="margin-top:8px">重新生成</button>`;document.getElementById("btnReProse").onclick=()=>genProse(n);}
+  catch(err){area.innerHTML=`<h3 class="sec">生成內文</h3><div class="msg err">${esc(err.message)}</div>`;}
+}
+function buildContext(n,forProse){
+  const path=pathTo(n.id),prev=path.slice(0,-1);
+  let s=`【作品】${P.title||"（未命名）"}｜類型：${P.genre||"未定"}\n【前提】${P.premise||"（未填）"}\n`;
+  if(P.style)s+=`【文風要求】${P.style}\n`;
+  s+=`【量尺（本節點生效值，請嚴格依定義拿捏）】\n${scalesText(n)}\n`;
+  if(prev.length){s+=`\n【前情脈絡（由前到後）】\n`;prev.forEach((p,i)=>{s+=`${i+1}.（${tierOf(p).name}）${p.title}：${(forProse&&p.prose?p.prose:p.summary)||"（無摘要）"}\n`;});}
+  else s+=`\n【前情脈絡】這是故事開場，前面沒有內容。\n`;
+  return s;
+}
+
+/* ============================================================ 內文組合 / Markdown */
+const storyModal=document.getElementById("storyModal");
+document.getElementById("btnStory").onclick=()=>{if(!P.endpointId){flash("尚無節點");return;}const path=pathTo(P.endpointId);const out=path.map(n=>`【${n.title}】\n${n.prose||("（摘要）"+(n.summary||""))}`).join("\n\n");document.getElementById("storyOut").textContent=out||"（空）";storyModal.classList.add("show");};
+document.getElementById("btnCloseStory").onclick=()=>storyModal.classList.remove("show");
+storyModal.addEventListener("click",e=>{if(e.target===storyModal)storyModal.classList.remove("show");});
+document.getElementById("btnCopyStory").onclick=async()=>{try{await navigator.clipboard.writeText(document.getElementById("storyOut").textContent);flash("已複製");}catch(_){flash("複製失敗，請手動選取");}};
+document.getElementById("btnDownloadStory").onclick=()=>downloadText((P.title||"story")+".txt",document.getElementById("storyOut").textContent);
+
+document.getElementById("btnMd").onclick=()=>{
+  let md=`# ${P.title||"未命名作品"}\n\n`;
+  if(P.premise)md+=`> ${P.premise}\n\n`;
+  const seen=new Set();
+  function walk(n,depth){
+    if(seen.has(n.id))return;seen.add(n.id);
+    const h="#".repeat(Math.min(6,depth+1));
+    md+=`${h} ${n.title}  \n`;
+    md+=`*〔${tierOf(n).name}〕*  \n\n`;
+    if(n.prose)md+=n.prose+"\n\n";else if(n.summary)md+=`（摘要）${n.summary}\n\n`;
+    childrenOf(n.id).forEach(c=>walk(c,depth+1));
+  }
+  roots().forEach(r=>walk(r,0));
+  downloadText((P.title||"story-loom")+".md",md);flash("已匯出 Markdown");
+};
+
+/* ============================================================ 匯出/匯入/重置 */
+document.getElementById("btnExport").onclick=()=>downloadText((P.title||"story-loom")+".json",JSON.stringify(P,null,2));
+document.getElementById("btnImport").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const j=JSON.parse(rd.result);if(!j.nodes)throw 0;P=migrate(Object.assign(defaultProject(),j));save();bindProjectFields();renderAll();flash("已匯入專案");}catch(_){flash("檔案格式不正確");}};rd.readAsText(f);e.target.value="";};
+document.getElementById("btnReset").onclick=()=>{if(confirm("清空所有節點與設定（金鑰保留）。確定？")){P=defaultProject();save();bindProjectFields();renderAll();}};
+function downloadText(name,text){const b=new Blob([text],{type:"text/plain;charset=utf-8"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);}
+
+/* ============================================================ 欄位綁定 */
+function bindProjectFields(){pTitle.value=P.title||"";pGenre.value=P.genre||"";pPremise.value=P.premise||"";pStyle.value=P.style||"";}
+pTitle.oninput=e=>{P.title=e.target.value;save();};pGenre.oninput=e=>{P.genre=e.target.value;save();};
+pPremise.oninput=e=>{P.premise=e.target.value;save();};pStyle.oninput=e=>{P.style=e.target.value;save();};
+function bindCfg(){geminiKey.value=CFG.geminiKey||"";geminiModel.value=CFG.geminiModel||"gemini-2.0-flash";groqKey.value=CFG.groqKey||"";groqModel.value=CFG.groqModel||"llama-3.3-70b-versatile";groqMode.value=CFG.groqMode||"auto";optCount.value=CFG.optCount||4;temp.value=CFG.temp||0.9;refreshModelSel();refreshKeyState();}
+geminiKey.oninput=e=>{CFG.geminiKey=e.target.value.trim();saveCfg();refreshKeyState();refreshModelSel();};
+geminiModel.oninput=e=>{CFG.geminiModel=e.target.value.trim();saveCfg();refreshModelSel();};
+groqKey.oninput=e=>{CFG.groqKey=e.target.value.trim();saveCfg();refreshKeyState();refreshModelSel();};
+groqModel.oninput=e=>{CFG.groqModel=e.target.value.trim();saveCfg();refreshModelSel();};
+groqMode.onchange=e=>{CFG.groqMode=e.target.value;saveCfg();};
+optCount.oninput=e=>{CFG.optCount=Number(e.target.value)||4;saveCfg();};
+temp.oninput=e=>{CFG.temp=Number(e.target.value);saveCfg();};
+function refreshKeyState(){document.getElementById("geminiState").innerHTML=CFG.geminiKey?'<span class="ok">● 已設定</span>':'<span class="no">● 未設定</span>';document.getElementById("groqState").innerHTML=CFG.groqKey?'<span class="ok">● 已設定</span>':'<span class="no">● 未設定</span>';}
+function refreshModelSel(){const sel=document.getElementById("modelSel");const prev=sel.value||CFG.provider||"gemini";sel.innerHTML="";const g=new Option("Gemini · "+(CFG.geminiModel||"gemini-2.0-flash")+(CFG.geminiKey?"":" (無金鑰)"),"gemini");const q=new Option("Groq · "+(CFG.groqModel||"llama-3.3-70b-versatile")+(CFG.groqKey?"":" (無金鑰)"),"groq");sel.add(g);sel.add(q);sel.value=prev;CFG.provider=sel.value;saveCfg();}
+document.getElementById("modelSel").onchange=e=>{CFG.provider=e.target.value;saveCfg();};
+
+/* ============================================================ 其它 UI */
+document.querySelectorAll(".tabs button").forEach(b=>{b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tabpane").forEach(p=>p.classList.toggle("active",p.dataset.pane===b.dataset.tab));};});
+document.getElementById("btnNew").onclick=()=>{const n=addNode({title:"新節點"});selectNode(n.id);};
+let flashT=null;
+function flash(msg){let el=document.getElementById("flash");if(!el){el=document.createElement("div");el.id="flash";el.style.cssText="position:fixed;left:50%;top:60px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);color:var(--text);padding:8px 16px;border-radius:20px;font-size:13px;z-index:80;box-shadow:var(--shadow);transition:opacity .3s";document.body.appendChild(el);}el.textContent=msg;el.style.opacity="1";clearTimeout(flashT);flashT=setTimeout(()=>el.style.opacity="0",1600);}
+function val(id){return document.getElementById(id).value.trim();}
+function fmt(v){v=Number(v);return Number.isInteger(v)?String(v):String(v);}
+function esc(s){return (s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function escAttr(s){return esc(s).replace(/"/g,"&quot;");}
+
+/* ============================================================ 啟動 */
+function renderAll(){renderScales();renderTiers();renderLib();render();renderRight();updateUsageChip();}
+function boot(){bindProjectFields();bindCfg();renderAll();applyView();setInterval(()=>{if(document.getElementById("usageModal").classList.contains("show"))renderUsage();updateUsageChip();},15000);}
+boot();
+</script>
+</body>
+</html>
